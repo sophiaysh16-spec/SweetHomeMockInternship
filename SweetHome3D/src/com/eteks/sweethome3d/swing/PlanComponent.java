@@ -2007,7 +2007,7 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
    * Prints this component plan at the scale given in the home print attributes or at a scale 
    * that makes it fill <code>pageFormat</code> imageable size if this attribute is <code>null</code>.
    */
-  public int print(Graphics g, PageFormat pageFormat, int pageIndex) {
+  private int printSelectedLevel(Graphics g, PageFormat pageFormat, int pageIndex) {
     List<Selectable> printedItems = getPaintedItems(); 
     Rectangle2D printedItemBounds = getItemsBounds(g, printedItems);
     if (printedItemBounds != null) {
@@ -2074,7 +2074,52 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
       return NO_SUCH_PAGE;
     }
   }
-  
+
+  /**
+   * Prints one page for each viewable level and restores the selected level
+   * after printing.
+   */
+  @Override
+  public int print(Graphics g, PageFormat pageFormat, int pageIndex) {
+    Level oldSelectedLevel = this.home.getSelectedLevel();
+
+    List<Level> viewableLevels = new ArrayList<Level>();
+    for (Level level : this.home.getLevels()) {
+      if (level.isViewable()) {
+        viewableLevels.add(level);
+      }
+    }
+
+    try {
+      /*
+       * Keep the original behavior for homes without levels.
+       */
+      if (viewableLevels.isEmpty()) {
+        return printSelectedLevel(g, pageFormat, pageIndex);
+      }
+
+      /*
+       * Each visible level occupies one plan page.
+       */
+      if (pageIndex < 0 || pageIndex >= viewableLevels.size()) {
+        return NO_SUCH_PAGE;
+      }
+
+      this.home.setSelectedLevel(viewableLevels.get(pageIndex));
+
+      /*
+       * printSelectedLevel uses the currently selected level.
+       * Page index 0 is used because each level is represented by one page.
+       */
+      return printSelectedLevel(g, pageFormat, 0);
+    } finally {
+      /*
+       * This also runs if rendering throws an exception.
+       */
+      this.home.setSelectedLevel(oldSelectedLevel);
+    }
+  }
+
   /**
    * Returns an image of the selected items displayed by this component 
    * (camera excepted) with no outline at scale 1/1 (1 pixel = 1cm).
